@@ -84,7 +84,6 @@ const noop = x => x;
         const handler = () => executed = true;
         promise.then(handler, handler);
         promise['catch'](handler);
-        promise['finally'] && promise['finally'](handler);
         runDelayed(() => {
           expect(executed).to.be.equal(false);
           done();
@@ -95,34 +94,29 @@ const noop = x => x;
         promise['catch'](null);
       });
       describe('Fulfillment', () => {
-        let count = 0, value, firstToExecute = 0;
-        before(() => {
-          promise.then(() => {
-            if (!firstToExecute)
-              firstToExecute = 1;
-          });
-          promise.then(arg => {
-            ++count;
-            value = arg;
-            if (!firstToExecute)
-              firstToExecute = 2;
-          });
-          resolver.resolve(42);
-        });
-
         it('eventually fires handler exactly once', (done) => {
+          let count = 0;
+          promise.then(() => ++count);
+          resolver.resolve();
           runDelayed(() => {
             expect(count).to.be.equal(1);
             done();
           });
         });
         it('passes resolution value to the handler', (done) => {
+          let value;
+          promise.then(arg => value = arg);
+          resolver.resolve(42);
           runDelayed(() => {
             expect(value).to.be.equal(42);
             done();
           });
         });
         it('ignores subsequent fulfillments', (done) => {
+          let value, count = 0;
+          promise.then(() => ++count);
+          promise.then(arg => value = arg);
+          resolver.resolve(42);
           resolver.resolve(1984);
           runDelayed(() => {
             expect(count).to.be.equal(1);
@@ -130,10 +124,10 @@ const noop = x => x;
             done();
           });
         });
-        xit('ignores subsequent rejections', (done) => {
-          // fails for native Promise (node v8.11.3)
+        it('ignores subsequent rejections', (done) => {
           let executed = false;
           promise['catch'](() => executed = true);
+          resolver.resolve();
           resolver.reject('ignored');
           runDelayed(() => {
             expect(executed).to.be.equal(false);
@@ -141,8 +135,12 @@ const noop = x => x;
           });
         });
         it('executes handlers in order', (done) => {
+          let order = [];
+          promise.then(() => order.push(1));
+          promise.then(() => order.push(2));
+          resolver.resolve();
           runDelayed(() => {
-            expect(firstToExecute).to.be.equal(1);
+            expect(order).to.be.deep.equal([1, 2]);
             done();
           });
         });
@@ -150,28 +148,19 @@ const noop = x => x;
 
       describe('Rejection', () => {
         // how fulfillment tests can be reused?
-        let count = 0, value, firstToExecute = 0;
-        before(() => {
-          promise.then(null, () => {
-            if (!firstToExecute)
-              firstToExecute = 1;
-          });
-          promise.then(null, arg => {
-            ++count;
-            value = arg;
-            if (!firstToExecute)
-              firstToExecute = 2;
-          });
-          resolver.reject(42);
-        });
-
         it('eventually fires handler exactly once', (done) => {
+          let count = 0;
+          promise.then(null, () => ++count);
+          resolver.reject();
           runDelayed(() => {
             expect(count).to.be.equal(1);
             done();
           });
         });
-        it('passes rejection value to the handler', (done) => {
+        it('passes resolution value to the handler', (done) => {
+          let value;
+          promise.then(null, arg => value = arg);
+          resolver.reject(42);
           runDelayed(() => {
             expect(value).to.be.equal(42);
             done();
@@ -190,29 +179,37 @@ const noop = x => x;
             done();
           })
         });
-        xit('ignores subsequent rejections', (done) => {
+        it('ignores subsequent rejections', (done) => {
           // this (un)surprisingly causes node to emit UnhandledPromiseRejectionWarning
           // when obviously there is a catch handler (two actually)
-          resolver.reject(1984);
+          let value, count = 0;
+          promise.then(null,() => ++count);
+          promise.then(null,arg => value = arg);
+          resolver.reject(42);
+          resolver.reject();
           runDelayed(() => {
             expect(count).to.be.equal(1);
             expect(value).to.be.equal(42);
             done();
           });
         });
-        xit('ignores subsequent fulfillments', (done) => {
-          // fails for native Promise (node v8.11.3)
+        it('ignores subsequent fulfillments', (done) => {
           let executed = false;
           promise.then(() => executed = true);
-          resolver.resolve('ignored');
+          resolver.reject();
+          resolver.resolve();
           runDelayed(() => {
             expect(executed).to.be.equal(false);
             done();
           });
         });
         it('executes handlers in order', (done) => {
+          let order = [];
+          promise.then(null,() => order.push(1));
+          promise.then(null,() => order.push(2));
+          resolver.reject();
           runDelayed(() => {
-            expect(firstToExecute).to.be.equal(1);
+            expect(order).to.be.deep.equal([1, 2]);
             done();
           });
         });
@@ -288,9 +285,9 @@ const noop = x => x;
     });
 
     describe('With other promises', () => {
-      it('should do well with promises as resolve values', () => {
+      xit('should do well with promises as resolve values', () => {
         expect.fail();
       })
     })
   });
-})(PromisePolyfill);
+})(Promise);
