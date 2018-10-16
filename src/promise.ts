@@ -82,18 +82,22 @@ export class PromisePolyfill {
 
   private rejectWith(value?: any) {
     if (this.status !== 0) return;
+    let rethrown = false;
     if (this.rejectHandler) {
       try {
         this.rejectHandler(value);
       } catch (ex) {
         value = ex;
+        rethrown = true;
       }
     }
     this.value = value;
-    for (let child of this.children) {
-      setTimeout(() => {
-        child.rejectWith(value);
-      }, 0);
+    if (!this.rejectHandler || rethrown) {
+      for (let child of this.children) {
+        setTimeout(() => {
+          child.rejectWith(this.value);
+        }, 0);
+      }
     }
     this.status = -1;
     this.resolveHandler = null;
