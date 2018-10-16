@@ -290,4 +290,4 @@ const noop = x => x;
       })
     })
   });
-})(Promise);
+})(PromisePolyfill);

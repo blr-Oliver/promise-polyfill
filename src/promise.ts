@@ -3,6 +3,9 @@ type Status = -1 | 0 | 1;
 type Task = (resolve?: Function, reject?: Function) => any;
 
 export class PromisePolyfill {
+  static id = 0;
+
+  private id: number;
   private status: Status = 0;
   private value: any;
   private children: PromisePolyfill[] = [];
@@ -10,6 +13,7 @@ export class PromisePolyfill {
   private rejectHandler?: Handler;
 
   constructor(task: Task) {
+    this.id = ++PromisePolyfill.id;
     try {
       task.call(this, this.resolveWith.bind(this), this.rejectWith.bind(this));
     } catch (ex) {
@@ -59,6 +63,7 @@ export class PromisePolyfill {
   }
 
   private resolveWith(value?: any) {
+    // console.log(`resolve #${this.id}[status=${this.status}]`);
     if (this.status !== 0) return;
     if (this.resolveHandler) {
       try {
@@ -74,6 +79,7 @@ export class PromisePolyfill {
         child.resolveWith(value);
       }, 0);
     }
+    // console.log(`changing #${this.id}[status ${this.status} -> 1]`);
     this.status = 1;
     this.resolveHandler = null;
     this.rejectHandler = null;
@@ -81,6 +87,7 @@ export class PromisePolyfill {
   }
 
   private rejectWith(value?: any) {
+    // console.log(`reject #${this.id}[status=${this.status}]`);
     if (this.status !== 0) return;
     let rethrown = false;
     if (this.rejectHandler) {
@@ -99,6 +106,7 @@ export class PromisePolyfill {
         }, 0);
       }
     }
+    // console.log(`changing #${this.id}[status ${this.status} -> -1]`);
     this.status = -1;
     this.resolveHandler = null;
     this.rejectHandler = null;
